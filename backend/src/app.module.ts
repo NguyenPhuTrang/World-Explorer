@@ -7,6 +7,9 @@ import { AppService } from './app.service.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
+import { CountriesService } from './countries/countries.service.js';
+import { CountriesController } from './countries/countries.controller.js';
+import { CountriesModule } from './countries/countries.module.js';
 
 @Module({
   imports: [
@@ -17,8 +20,9 @@ import { UsersModule } from './users/users.module.js';
     PrismaModule,
     AuthModule,
     UsersModule,
+    CountriesModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, CountriesController],
+  providers: [AppService, CountriesService],
 })
 export class AppModule {}
