@@ -1,10 +1,15 @@
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Đọc Cookie từ HTTP Request
+  app.use(cookieParser());
 
   // Global API Prefix
   app.setGlobalPrefix('api/v1');
@@ -29,7 +34,9 @@ async function bootstrap() {
 
   await app.listen(port);
 
-  console.log(`Backend running at: http://localhost:${port}/api/v1`);
+  console.log(
+    `Backend running at: http://localhost:${port}/api/v1`,
+  );
 }
 
 await bootstrap();
