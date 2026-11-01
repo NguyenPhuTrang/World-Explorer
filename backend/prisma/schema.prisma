@@ -11,3 +11,546 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum RoleName {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum OAuthProvider {
+  GOOGLE
+}
+
+enum DestinationType {
+  REGION
+  CITY
+  ATTRACTION
+}
+
+enum TourDifficulty {
+  EASY
+  MODERATE
+  CHALLENGING
+}
+
+enum TourStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TourImageType {
+  THUMBNAIL
+  COVER
+  GALLERY
+}
+
+enum DepartureStatus {
+  SCHEDULED
+  OPEN
+  CLOSED
+  CANCELLED
+  COMPLETED
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  COMPLETED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum PaymentProvider {
+  MOCK
+  STRIPE
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUND_PENDING
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        RoleName @unique
+  description String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  users User[]
+}
+
+model User {
+  id        String  @id @default(uuid()) @db.Uuid
+  email     String  @unique
+  fullName  String
+  avatarUrl String?
+
+  roleId   String  @db.Uuid
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  role                 Role                   @relation(fields: [roleId], references: [id])
+  oauthAccounts        OAuthAccount[]
+  refreshTokens        RefreshToken[]
+  bookings             Booking[]
+  reviews              Review[]
+  favorites            Favorite[]
+  bookingStatusChanges BookingStatusHistory[]
+}
+
+model OAuthAccount {
+  id                String        @id @default(uuid()) @db.Uuid
+  userId            String        @db.Uuid
+  provider          OAuthProvider
+  providerAccountId String
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Country {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String
+  code        String  @unique @db.Char(2)
+  slug        String  @unique
+  description String?
+  imageUrl    String?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  destinations Destination[]
+}
+
+model Destination {
+  id        String  @id @default(uuid()) @db.Uuid
+  countryId String  @db.Uuid
+  parentId  String? @db.Uuid
+
+  name        String
+  slug        String
+  type        DestinationType
+  description String?
+  imageUrl    String?
+
+  tourDestinations TourDestination[]
+
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  country Country @relation(fields: [countryId], references: [id], onDelete: Restrict)
+
+  parent   Destination?  @relation("DestinationHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children Destination[] @relation("DestinationHierarchy")
+
+  @@index([countryId])
+  @@index([parentId])
+  @@index([countryId, type, isActive])
+}
+
+model Tour {
+  id    String @id @default(uuid()) @db.Uuid
+  title String
+  slug  String @unique
+
+  summary     String
+  description String
+
+  durationDays   Int
+  durationNights Int
+
+  difficulty TourDifficulty @default(EASY)
+  status     TourStatus     @default(DRAFT)
+
+  maxGuestsPerBooking Int
+
+  includedServices Json @default("[]")
+  excludedServices Json @default("[]")
+
+  cancellationPolicy String?
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  tourDestinations TourDestination[]
+  tourCategories   TourCategory[]
+  images           TourImage[]
+  itineraries      Itinerary[]
+  departures       TourDeparture[]
+  reviews          Review[]
+  favorites        Favorite[]
+}
+
+model Category {
+  id       String  @id @default(uuid()) @db.Uuid
+  parentId String? @db.Uuid
+
+  name        String
+  slug        String
+  description String?
+  imageUrl    String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryHierarchy")
+
+  tourCategories TourCategory[]
+
+  @@index([parentId])
+  @@index([isActive])
+  @@index([parentId, slug])
+}
+
+model TourDestination {
+  tourId        String @db.Uuid
+  destinationId String @db.Uuid
+
+  displayOrder Int
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  tour        Tour        @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  destination Destination @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+
+  @@id([tourId, destinationId])
+  @@index([destinationId, tourId])
+}
+
+model TourCategory {
+  tourId     String   @db.Uuid
+  categoryId String   @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  tour     Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([tourId, categoryId])
+  @@index([categoryId, tourId])
+}
+
+model TourImage {
+  id     String @id @default(uuid()) @db.Uuid
+  tourId String @db.Uuid
+
+  imageUrl String
+  altText  String?
+  type     TourImageType @default(GALLERY)
+
+  displayOrder Int @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  tour Tour @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@index([tourId, type, displayOrder])
+}
+
+model Itinerary {
+  id     String @id @default(uuid()) @db.Uuid
+  tourId String @db.Uuid
+
+  dayNumber Int
+
+  title       String
+  description String
+
+  activities Json  @default("[]")
+  meals      Json?
+
+  accommodation String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  tour Tour @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@unique([tourId, dayNumber])
+  @@index([tourId])
+}
+
+model TourDeparture {
+  id     String @id @default(uuid()) @db.Uuid
+  tourId String @db.Uuid
+
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+
+  bookingDeadline DateTime? @db.Timestamptz(6)
+
+  pricePerPerson Decimal @db.Decimal(10, 2)
+  currency       String  @default("USD")
+
+  capacity    Int
+  bookedSeats Int @default(0)
+  heldSeats   Int @default(0)
+
+  minGroupSize Int @default(1)
+
+  status DepartureStatus @default(SCHEDULED)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  tour     Tour      @relation(fields: [tourId], references: [id], onDelete: Restrict)
+  bookings Booking[]
+
+  @@index([tourId, status, startDate])
+  @@index([status, startDate])
+}
+
+model Booking {
+  id String @id @default(uuid()) @db.Uuid
+
+  bookingCode String @unique
+
+  userId      String @db.Uuid
+  departureId String @db.Uuid
+
+  guestCount Int
+
+  unitPrice   Decimal @db.Decimal(10, 2)
+  totalAmount Decimal @db.Decimal(10, 2)
+  currency    String  @default("USD")
+
+  status BookingStatus @default(PENDING_PAYMENT)
+
+  expiresAt DateTime? @db.Timestamptz(6)
+
+  confirmedAt DateTime? @db.Timestamptz(6)
+  cancelledAt DateTime? @db.Timestamptz(6)
+  completedAt DateTime? @db.Timestamptz(6)
+
+  cancellationReason String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  departure TourDeparture @relation(fields: [departureId], references: [id], onDelete: Restrict)
+
+  guests        BookingGuest[]
+  payments      Payment[]
+  statusHistory BookingStatusHistory[]
+
+  review Review?
+
+  @@index([userId, createdAt])
+  @@index([departureId, status])
+  @@index([status, expiresAt])
+}
+
+model BookingGuest {
+  id        String @id @default(uuid()) @db.Uuid
+  bookingId String @db.Uuid
+
+  fullName    String
+  dateOfBirth DateTime? @db.Date
+  nationality String?   @db.Char(2)
+  gender      Gender?
+
+  email String?
+  phone String?
+
+  isPrimaryContact Boolean @default(false)
+
+  specialRequests String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+
+  bookingId String @db.Uuid
+
+  paymentCode String @unique
+
+  provider PaymentProvider
+  method   PaymentMethod
+
+  providerTransactionId String?
+
+  amount   Decimal @db.Decimal(10, 2)
+  currency String  @default("USD")
+
+  status PaymentStatus @default(PENDING)
+
+  idempotencyKey String? @unique
+
+  failureCode    String?
+  failureMessage String?
+
+  paidAt DateTime? @db.Timestamptz(6)
+
+  refundedAmount Decimal @default(0) @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  paymentEvents PaymentEvent[]
+
+  @@unique([provider, providerTransactionId])
+  @@index([bookingId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Review {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId    String @db.Uuid
+  tourId    String @db.Uuid
+  bookingId String @unique @db.Uuid
+
+  rating  Int
+  title   String?
+  content String
+
+  status ReviewStatus @default(PENDING)
+
+  moderatedAt DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tour    Tour    @relation(fields: [tourId], references: [id], onDelete: Restrict)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([tourId, status, createdAt])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Favorite {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @db.Uuid
+  tourId String @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tour Tour @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tourId])
+  @@index([userId, createdAt])
+  @@index([tourId])
+}
+
+model BookingStatusHistory {
+  id String @id @default(uuid()) @db.Uuid
+
+  bookingId String @db.Uuid
+
+  oldStatus BookingStatus?
+  newStatus BookingStatus
+
+  changedByUserId String? @db.Uuid
+
+  reason String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  changedBy User? @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, createdAt])
+  @@index([changedByUserId, createdAt])
+}
+
+model PaymentEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  paymentId String @db.Uuid
+
+  provider        PaymentProvider
+  providerEventId String
+  eventType       String
+
+  payload Json
+
+  isProcessed Boolean @default(false)
+
+  processedAt     DateTime? @db.Timestamptz(6)
+  processingError String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerEventId])
+  @@index([paymentId, createdAt])
+  @@index([isProcessed, createdAt])
+}
+
+model RefreshToken {
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @db.Uuid
+  tokenHash String @unique
+
+  expiresAt  DateTime  @db.Timestamptz(6)
+  revokedAt  DateTime? @db.Timestamptz(6)
+  lastUsedAt DateTime? @db.Timestamptz(6)
+
+  userAgent String?
+  ipAddress String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
