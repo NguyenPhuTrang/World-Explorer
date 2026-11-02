@@ -11,6 +11,7 @@ import { CountriesService } from './countries/countries.service.js';
 import { CountriesController } from './countries/countries.controller.js';
 import { CountriesModule } from './countries/countries.module.js';
 import { DestinationsModule } from './destinations/destinations.module.js';
+import { CategoriesModule } from './categories/categories.module.js';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { DestinationsModule } from './destinations/destinations.module.js';
     UsersModule,
     CountriesModule,
     DestinationsModule,
+    CategoriesModule,
   ],
   controllers: [AppController, CountriesController],
   providers: [AppService, CountriesService],
