@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module.js';
 import { CountriesService } from './countries/countries.service.js';
 import { CountriesController } from './countries/countries.controller.js';
 import { CountriesModule } from './countries/countries.module.js';
+import { DestinationsModule } from './destinations/destinations.module.js';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { CountriesModule } from './countries/countries.module.js';
     AuthModule,
     UsersModule,
     CountriesModule,
+    DestinationsModule,
   ],
   controllers: [AppController, CountriesController],
   providers: [AppService, CountriesService],
