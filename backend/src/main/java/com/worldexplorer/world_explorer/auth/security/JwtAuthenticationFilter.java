@@ -1,7 +1,9 @@
 
 package com.worldexplorer.world_explorer.auth.security;
 
+import com.worldexplorer.world_explorer.entity.Role;
 import com.worldexplorer.world_explorer.entity.User;
+import com.worldexplorer.world_explorer.repository.RoleRepository;
 import com.worldexplorer.world_explorer.repository.UserRepository;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -9,6 +11,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -23,13 +26,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
 
     public JwtAuthenticationFilter(
             JwtService jwtService,
-            UserRepository userRepository
+            UserRepository userRepository,
+            RoleRepository roleRepository
     ) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
     }
 
     @Override
@@ -39,10 +45,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // 1. Lấy Authorization Header
         String authHeader = request.getHeader("Authorization");
 
-        // 2. Kiểm tra Bearer Token
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -51,14 +55,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         try {
-            // 3. Xác minh JWT và lấy User ID
             UUID userId = jwtService.extractUserId(token);
 
-            // 4. Tìm User trong database
             User user = userRepository.findById(userId)
                     .orElse(null);
 
-            // 5. Kiểm tra trạng thái tài khoản
             if (user == null
                     || !user.isActive()
                     || user.getDeletedAt() != null) {
@@ -67,20 +68,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 response.sendError(
                         HttpServletResponse.SC_UNAUTHORIZED,
-                        "Tài khoản không hợp lệ hoặc đã bị vô hiệu hóa"
+                        "Invalid or deactivated user account"
                 );
 
                 return;
             }
 
-            // 6. Tạo Authentication nếu chưa có
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
+
+                Role role = roleRepository.findById(user.getRoleId())
+                        .orElse(null);
+
+                if (role == null) {
+                    SecurityContextHolder.clearContext();
+
+                    response.sendError(
+                            HttpServletResponse.SC_FORBIDDEN,
+                            "User role not found"
+                    );
+
+                    return;
+                }
+
+                String authority = "ROLE_" + role.getName().name();
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 userId,
                                 null,
-                                List.of()
+                                List.of(new SimpleGrantedAuthority(authority))
                         );
 
                 authentication.setDetails(
@@ -88,18 +104,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 .buildDetails(request)
                 );
 
-                // 7. Lưu Authentication vào Security Context
                 SecurityContextHolder.getContext()
                         .setAuthentication(authentication);
             }
 
         } catch (JwtException | IllegalArgumentException e) {
-
-            // JWT không hợp lệ hoặc hết hạn
             SecurityContextHolder.clearContext();
         }
 
-        // 8. Tiếp tục Filter Chain
         filterChain.doFilter(request, response);
     }
 }

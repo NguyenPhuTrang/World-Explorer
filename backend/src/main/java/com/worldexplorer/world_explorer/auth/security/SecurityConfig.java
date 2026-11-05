@@ -3,6 +3,7 @@ package com.worldexplorer.world_explorer.auth.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -15,6 +16,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -25,7 +27,7 @@ public class SecurityConfig {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
-    // Cấu hình CORS
+    // Configure CORS
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
@@ -53,37 +55,46 @@ public class SecurityConfig {
         return source;
     }
 
-    // Cấu hình Spring Security
+    // Configure Spring Security
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http
     ) throws Exception {
 
         http
-                // Bật CORS
+                // Enable CORS
                 .cors(cors ->
                         cors.configurationSource(corsConfigurationSource())
                 )
 
-                // Tắt CSRF cho API sử dụng Bearer Token
+                // Disable CSRF for stateless Bearer Token APIs
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // Không sử dụng HTTP Session
+                // Disable HTTP Session
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
 
-                // Quy định quyền truy cập API
+                // Configure API authorization
                 .authorizeHttpRequests(auth -> auth
+
+                        // Public authentication endpoints
                         .requestMatchers(
                                 "/api/auth/google",
                                 "/api/auth/refresh"
                         ).permitAll()
+
+                        // Admin-only API endpoints
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
+
+                        // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )
-                // Đăng ký JWT Authentication Filter
+
+                // Register JWT Authentication Filter
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

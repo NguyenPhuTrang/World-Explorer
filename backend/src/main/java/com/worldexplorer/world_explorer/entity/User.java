@@ -9,6 +9,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.UuidGenerator;
+import java.time.OffsetDateTime;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -128,5 +129,10 @@ public class User {
 
     public OffsetDateTime getDeletedAt() {
         return deletedAt;
+    }
+
+    public void deactivateAndDelete() {
+        this.isActive = false;
+        this.deletedAt = OffsetDateTime.now();
     }
 }
