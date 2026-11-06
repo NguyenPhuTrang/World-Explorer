@@ -1,8 +1,10 @@
+// ó chức năng cấu hình bảo mật và phân quyền truy cập cho toàn bộ Backend của World Explorer bằng Spring Security.
 
 package com.worldexplorer.world_explorer.auth.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -84,6 +86,13 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/google",
                                 "/api/auth/refresh"
+                        ).permitAll()
+
+                        // Public destination read endpoints
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/destinations",
+                                "/api/destinations/**"
                         ).permitAll()
 
                         // Admin-only API endpoints
