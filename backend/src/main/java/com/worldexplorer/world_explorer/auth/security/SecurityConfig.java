@@ -88,11 +88,13 @@ public class SecurityConfig {
                                 "/api/auth/refresh"
                         ).permitAll()
 
-                        // Public destination read endpoints
+                        // Public destination and country read endpoints
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/destinations",
-                                "/api/destinations/**"
+                                "/api/destinations/**",
+                                "/api/countries",
+                                "/api/countries/**"
                         ).permitAll()
 
                         // Admin-only API endpoints
